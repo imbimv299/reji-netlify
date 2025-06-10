@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>業務用レジ</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "メイリオ", sans-serif;
+      background: #e6ecf0;
+      color: #000;
+    }
+    header {
+      background: #002f6c;
+      color: #fff;
+      padding: 12px 20px;
+      font-size: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .container {
+      display: flex;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+      gap: 20px;
+    }
+    .products, .receipt-panel {
+      flex: 1;
+    }
+    .products {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .products button {
+      font-size: 20px;
+      padding: 20px;
+      background: #ffffff;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .products button:hover {
+      background: #fdd835;
+    }
+    .receipt {
+      background: #fff;
+      padding: 15px;
+      border: 2px solid #888;
+      border-radius: 6px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      min-height: 250px;
+    }
+    .total {
+      text-align: right;
+      font-size: 24px;
+      margin: 10px 0;
+      font-weight: bold;
+    }
+    .pay-btn, .csv-btn, .install-btn {
+      background: #1976d2;
+      color: white;
+      font-size: 16px;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      width: 100%;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    .clock {
+      font-family: monospace;
+      font-size: 16px;
+    }
+    #login-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: #002f6c;
+      color: white;
+    }
+    #login-screen input {
+      padding: 10px;
+      margin: 5px;
+      font-size: 16px;
+      width: 200px;
+    }
+    .add-product-form input {
+      padding: 6px;
+      margin: 4px 2px;
+    }
+    .add-product-form button {
+      padding: 6px 12px;
+      background: #0078d4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    .product-control {
+      display: flex;
+      gap: 5px;
+      margin-top: 4px;
+    }
+    .product-control button {
+      padding: 2px 6px;
+      font-size: 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .delete { background: #d32f2f; color: #fff; }
+    .up, .down { background: #0288d1; color: #fff; }
+  </style>
+</head>
+<body>
+  <div id="login-screen">
+    <h2>🔐 ログイン</h2>
+    <input type="text" id="username" placeholder="ユーザー名" />
+    <input type="password" id="password" placeholder="パスワード" />
+    <button onclick="login()">ログイン</button>
+    <p id="login-error" style="color: red;"></p>
+  </div>
+
+  <div id="main-screen" style="display: none;">
+    <header>
+      <div>🧾 業務用レジシステム</div>
+      <div class="clock" id="clock">--:--:--</div>
+    </header>
+    <div class="container">
+      <div class="products" id="productButtons"></div>
+      <div class="receipt-panel">
+        <div class="receipt" id="receipt">📋 レシート:</div>
+        <div class="total">合計: <span id="total">0</span> 円</div>
+        <button class="pay-btn" onclick="pay()">💰 会計</button>
+        <button class="csv-btn" id="csvButton">🧾 レシート出力 (.txt)</button>
+        <button class="install-btn" id="installButton">📦 インストール</button>
+        <div class="add-product-form" id="admin-form">
+          <h3>➕ 商品追加</h3>
+          <input type="text" id="newItemName" placeholder="🍎 商品名" />
+          <input type="number" id="newItemPrice" placeholder="価格" />
+          <button onclick="addNewItem()">追加</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const users = {
+      demo: "1234",
+      admin: "adminpass",
+      csvuser: "csvpass"
+    };
+    let currentUser = "";
+    let total = 0;
+    let items = [
+      { name: "🍎 りんご", price: 100 },
+      { name: "🍞 パン", price: 150 },
+      { name: "🥛 牛乳", price: 200 }
+    ];
+
+    function login() {
+      const u = document.getElementById("username").value;
+      const p = document.getElementById("password").value;
+      const loginError = document.getElementById("login-error");
+
+      if (users[u] && users[u] === p) {
+        currentUser = u;
+        document.getElementById("login-screen").style.display = "none";
+        document.getElementById("main-screen").style.display = "block";
+
+        // 権限制御（現状はすべて有効）
+        document.getElementById("admin-form").style.display = "block";
+        document.getElementById("csvButton").style.display = "block";
+        document.getElementById("installButton").style.display = "block";
+
+        renderProducts();
+      } else {
+        loginError.textContent = "ユーザー名またはパスワードが違います";
+      }
+    }
+
+    function renderProducts() {
+      const container = document.getElementById("productButtons");
+      container.innerHTML = "";
+      const receipt = document.getElementById("receipt");
+      const totalDisplay = document.getElementById("total");
+
+      items.forEach((item, index) => {
+        const wrapper = document.createElement("div");
+
+        const btn = document.createElement("button");
+        btn.textContent = `${item.name} (${item.price}円)`;
+        btn.onclick = () => {
+          receipt.innerText += `\n${item.name} - ${item.price}円`;
+          total += item.price;
+          totalDisplay.textContent = total;
+        };
+
+        const controls = document.createElement("div");
+        controls.className = "product-control";
+
+        const del = document.createElement("button");
+        del.textContent = "削除";
+        del.className = "delete";
+        del.onclick = () => {
+          if (confirm(`${item.name} を削除しますか？`)) {
+            items.splice(index, 1);
+            renderProducts();
+          }
+        };
+
+        const up = document.createElement("button");
+        up.textContent = "＋";
+        up.className = "up";
+        up.onclick = () => {
+          item.price++;
+          renderProducts();
+        };
+
+        const down = document.createElement("button");
+        down.textContent = "−";
+        down.className = "down";
+        down.onclick = () => {
+          if (item.price > 1) {
+            item.price--;
+            renderProducts();
+          }
+        };
+
+        controls.appendChild(del);
+        controls.appendChild(up);
+        controls.appendChild(down);
+
+        wrapper.appendChild(btn);
+        wrapper.appendChild(controls);
+        container.appendChild(wrapper);
+      });
+    }
+
+    function addNewItem() {
+      let name = document.getElementById("newItemName").value.trim();
+      const price = parseInt(document.getElementById("newItemPrice").value);
+      if (name && !isNaN(price)) {
+        if (!/^\p{Emoji}/u.test(name)) {
+          name = "🆕 " + name;
+        }
+        items.push({ name, price });
+        renderProducts();
+        document.getElementById("newItemName").value = "";
+        document.getElementById("newItemPrice").value = "";
+      }
+    }
+
+    function pay() {
+      alert(`合計 ${total}円 を会計しました！`);
+      document.getElementById("receipt").textContent = "📋 レシート:";
+      total = 0;
+      document.getElementById("total").textContent = total;
+    }
+
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, "0");
+      const m = String(now.getMinutes()).padStart(2, "0");
+      const s = String(now.getSeconds()).padStart(2, "0");
+      document.getElementById("clock").textContent = `${h}:${m}:${s}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function downloadCSV() {
+      let csv = "商品名,価格\n";
+      items.forEach(i => csv += `${i.name},${i.price}\n`);
+      const blob = new Blob([csv], { type: 'text/plain' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "receipt.txt";
+      link.click();
+    }
+  </script>
+</body>
+</html>
