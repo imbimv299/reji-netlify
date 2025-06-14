@@ -2,95 +2,315 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>画像アップロードログイン付きレジ</title>
+  <title>バーコードログイン付きレジ</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
   <style>
-    body { font-family: sans-serif; background: #f0f0f0; margin: 0; }
-    .container { max-width: 600px; margin: 40px auto; padding: 20px; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 10px; }
-    #login, #pos { display: none; }
-    .active { display: block; }
-    h2 { margin-top: 0; }
-    button { padding: 10px 20px; margin-top: 10px; }
-    .header { background: #004080; color: white; padding: 15px; font-size: 22px; border-radius: 8px 8px 0 0; }
+    body { font-family: sans-serif; background: #f8f8f8; margin: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 8px rgba(0,0,0,0.2); }
+    .header { background: #004080; color: white; padding: 15px; border-radius: 8px 8px 0 0; font-size: 20px; }
+    .field { margin-top: 10px; }
+    input[type="text"], input[type="password"], input[type="file"] { width: 100%; padding: 8px; margin-top: 5px; }
+    button { padding: 10px 15px; margin-top: 10px; cursor: pointer; }
+    #barcodeImage { margin-top: 10px; }
+    #pos { display: none; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
 
-<!-- ログイン画面 -->
-<div id="login" class="active">
-  <div class="container">
-    <div class="header">🔒 バーコード画像でログイン</div>
-    <h2>バーコード画像をアップロードしてください</h2>
-    <input type="file" accept="image/*" id="barcodeFile"><br>
-    <button onclick="uploadAndScan()">アップロードしてログイン</button>
-    <p id="resultText"></p>
+<div class="container" id="login">
+  <div class="header">🔐 ログイン画面</div>
+  <div class="field">
+    <label>ユーザーID:</label>
+    <input type="text" id="userID" placeholder="例: demo">
   </div>
+  <div class="field">
+    <label>パスワード:</label>
+    <input type="password" id="password" placeholder="任意のパスワード">
+  </div>
+
+  <button onclick="manualLogin()">▶ 通常ログイン</button>
+
+  <hr>
+
+  <button onclick="generateBarcode()">📄 バーコード生成</button>
+  <svg id="barcodeImage"></svg>
+  <button onclick="downloadBarcode()">⬇ 画像保存</button>
+
+  <hr>
+
+  <input type="file" id="barcodeFile" accept="image/*">
+  <button onclick="scanBarcode()">📷 バーコード画像からログイン</button>
+  <p id="loginStatus"></p>
 </div>
 
-<!-- レジ画面 -->
-<div id="pos">
-  <div class="container">
-    <div class="header">🛒 レジ画面（ログイン成功）</div>
-    <p>ようこそ！ログインしました。</p>
-    <button onclick="logout()">🔓 ログアウト</button>
-  </div>
+<div class="container" id="pos">
+  <div class="header">🛒 レジ画面</div>
+  <p>ようこそ、ログイン成功しました。</p>
+  <button onclick="logout()">🔓 ログアウト</button>
 </div>
-
-<!-- ライブラリ -->
-<script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
 
 <script>
-const validIDs = ["123456", "555555", "999999"];
+  // 仮のユーザーDB（例: {"demo": "1234", "admin": "adminpass"}）
+  let userDB = {};
 
-function uploadAndScan() {
-  const fileInput = document.getElementById('barcodeFile');
-  const resultText = document.getElementById('resultText');
+  function manualLogin() {
+    const id = document.getElementById("userID").value.trim();
+    const pw = document.getElementById("password").value.trim();
+    if (!id || !pw) return alert("IDとパスワードを入力してください");
 
-  if (!fileInput.files.length) {
-    resultText.textContent = "ファイルを選択してください。";
-    return;
+    // ログイン成功判定
+    if (userDB[id] === pw) {
+      toPOS();
+    } else {
+      alert("ログイン失敗（ユーザーが登録されていないかパスワードが間違っています）");
+    }
   }
 
-  const file = fileInput.files[0];
-  const reader = new FileReader();
+  function generateBarcode() {
+    const id = document.getElementById("userID").value.trim();
+    const pw = document.getElementById("password").value.trim();
+    if (!id || !pw) return alert("IDとパスワードを入力してください");
 
-  reader.onload = function(e) {
-    const imageDataUrl = e.target.result;
+    // 保存
+    userDB[id] = pw;
 
-    // Quaggaで画像からバーコード解析
-    Quagga.decodeSingle({
-      src: imageDataUrl,
-      numOfWorkers: 0,
-      inputStream: { size: 800 },
-      decoder: { readers: ["code_128_reader"] }
-    }, function(result) {
-      if (result && result.codeResult) {
-        const code = result.codeResult.code;
-        resultText.textContent = `バーコード検出: ${code}`;
-        if (validIDs.includes(code)) {
-          loginSuccess();
-        } else {
-          alert("無効なIDです: " + code);
-        }
-      } else {
-        resultText.textContent = "バーコードが読み取れませんでした。";
-      }
+    // バーコード生成
+    JsBarcode("#barcodeImage", id, {
+      format: "CODE128",
+      width: 2,
+      height: 80,
+      displayValue: true
     });
-  };
+  }
 
-  reader.readAsDataURL(file);
-}
+  function downloadBarcode() {
+    const svg = document.getElementById("barcodeImage");
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
 
-function loginSuccess() {
-  document.getElementById('login').classList.remove('active');
-  document.getElementById('pos').classList.add('active');
-}
+    img.onload = function () {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      const png = canvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = png;
+      a.download = "barcode.png";
+      a.click();
+    };
 
-function logout() {
-  document.getElementById('login').classList.add('active');
-  document.getElementById('pos').classList.remove('active');
-  document.getElementById('barcodeFile').value = "";
-  document.getElementById('resultText').textContent = "";
-}
+    img.src = "data:image/svg+xml;base64," + btoa(svgData);
+  }
+
+  function scanBarcode() {
+    const fileInput = document.getElementById("barcodeFile");
+    const status = document.getElementById("loginStatus");
+
+    if (!fileInput.files.length) {
+      status.textContent = "画像を選択してください。";
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      Quagga.decodeSingle({
+        src: e.target.result,
+        numOfWorkers: 0,
+        inputStream: { size: 800 },
+        decoder: { readers: ["code_128_reader"] }
+      }, function (result) {
+        if (result && result.codeResult) {
+          const scannedID = result.codeResult.code;
+          if (userDB[scannedID]) {
+            status.textContent = "ログイン成功: " + scannedID;
+            toPOS();
+          } else {
+            status.textContent = "未登録のID: " + scannedID;
+          }
+        } else {
+          status.textContent = "バーコードが読み取れませんでした。";
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function toPOS() {
+    document.getElementById("login").classList.add("hidden");
+    document.getElementById("pos").style.display = "block";
+  }
+
+  function logout() {
+    document.getElementById("login").classList.remove("hidden");
+    document.getElementById("pos").style.display = "none";
+    document.getElementById("userID").value = "";
+    document.getElementById("password").value = "";
+    document.getElementById("barcodeFile").value = "";
+    document.getElementById("loginStatus").textContent = "";
+  }
+</script>
+
+</body>
+</ht<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>バーコードログイン付きレジ</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #f8f8f8; margin: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 8px rgba(0,0,0,0.2); }
+    .header { background: #004080; color: white; padding: 15px; border-radius: 8px 8px 0 0; font-size: 20px; }
+    .field { margin-top: 10px; }
+    input[type="text"], input[type="password"], input[type="file"] { width: 100%; padding: 8px; margin-top: 5px; }
+    button { padding: 10px 15px; margin-top: 10px; cursor: pointer; }
+    #barcodeImage { margin-top: 10px; }
+    #pos { display: none; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="container" id="login">
+  <div class="header">🔐 ログイン画面</div>
+  <div class="field">
+    <label>ユーザーID:</label>
+    <input type="text" id="userID" placeholder="例: demo">
+  </div>
+  <div class="field">
+    <label>パスワード:</label>
+    <input type="password" id="password" placeholder="任意のパスワード">
+  </div>
+
+  <button onclick="manualLogin()">▶ 通常ログイン</button>
+
+  <hr>
+
+  <button onclick="generateBarcode()">📄 バーコード生成</button>
+  <svg id="barcodeImage"></svg>
+  <button onclick="downloadBarcode()">⬇ 画像保存</button>
+
+  <hr>
+
+  <input type="file" id="barcodeFile" accept="image/*">
+  <button onclick="scanBarcode()">📷 バーコード画像からログイン</button>
+  <p id="loginStatus"></p>
+</div>
+
+<div class="container" id="pos">
+  <div class="header">🛒 レジ画面</div>
+  <p>ようこそ、ログイン成功しました。</p>
+  <button onclick="logout()">🔓 ログアウト</button>
+</div>
+
+<script>
+  // 仮のユーザーDB（例: {"demo": "1234", "admin": "adminpass"}）
+  let userDB = {};
+
+  function manualLogin() {
+    const id = document.getElementById("userID").value.trim();
+    const pw = document.getElementById("password").value.trim();
+    if (!id || !pw) return alert("IDとパスワードを入力してください");
+
+    // ログイン成功判定
+    if (userDB[id] === pw) {
+      toPOS();
+    } else {
+      alert("ログイン失敗（ユーザーが登録されていないかパスワードが間違っています）");
+    }
+  }
+
+  function generateBarcode() {
+    const id = document.getElementById("userID").value.trim();
+    const pw = document.getElementById("password").value.trim();
+    if (!id || !pw) return alert("IDとパスワードを入力してください");
+
+    // 保存
+    userDB[id] = pw;
+
+    // バーコード生成
+    JsBarcode("#barcodeImage", id, {
+      format: "CODE128",
+      width: 2,
+      height: 80,
+      displayValue: true
+    });
+  }
+
+  function downloadBarcode() {
+    const svg = document.getElementById("barcodeImage");
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+
+    img.onload = function () {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      const png = canvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = png;
+      a.download = "barcode.png";
+      a.click();
+    };
+
+    img.src = "data:image/svg+xml;base64," + btoa(svgData);
+  }
+
+  function scanBarcode() {
+    const fileInput = document.getElementById("barcodeFile");
+    const status = document.getElementById("loginStatus");
+
+    if (!fileInput.files.length) {
+      status.textContent = "画像を選択してください。";
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      Quagga.decodeSingle({
+        src: e.target.result,
+        numOfWorkers: 0,
+        inputStream: { size: 800 },
+        decoder: { readers: ["code_128_reader"] }
+      }, function (result) {
+        if (result && result.codeResult) {
+          const scannedID = result.codeResult.code;
+          if (userDB[scannedID]) {
+            status.textContent = "ログイン成功: " + scannedID;
+            toPOS();
+          } else {
+            status.textContent = "未登録のID: " + scannedID;
+          }
+        } else {
+          status.textContent = "バーコードが読み取れませんでした。";
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function toPOS() {
+    document.getElementById("login").classList.add("hidden");
+    document.getElementById("pos").style.display = "block";
+  }
+
+  function logout() {
+    document.getElementById("login").classList.remove("hidden");
+    document.getElementById("pos").style.display = "none";
+    document.getElementById("userID").value = "";
+    document.getElementById("password").value = "";
+    document.getElementById("barcodeFile").value = "";
+    document.getElementById("loginStatus").textContent = "";
+  }
 </script>
 
 </body>
