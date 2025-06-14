@@ -53,7 +53,11 @@
 
 <script>
   // 仮のユーザーDB（例: {"demo": "1234", "admin": "adminpass"}）
-  let userDB = {};
+   let userDB = {
+  demo: "1234",
+  admin: "adminpass"
+};
+
 
   function manualLogin() {
     const id = document.getElementById("userID").value.trim();
