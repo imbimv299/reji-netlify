@@ -1,0 +1,175 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>業務用レジ - 東芝テック風</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: 'Arial', sans-serif; background: #f2f2f2; margin: 0; padding: 0; }
+        #loginScreen, #mainScreen { display: none; }
+        .container { padding: 20px; }
+        .header { background: #1b4f72; color: white; padding: 10px; text-align: center; }
+        .btn { padding: 10px 20px; margin: 5px; font-size: 16px; cursor: pointer; }
+        .btn-main { background: #2874a6; color: white; border: none; }
+        .btn-danger { background: #c0392b; color: white; border: none; }
+        .btn-secondary { background: #7f8c8d; color: white; border: none; }
+        table { width: 100%; margin-top: 10px; border-collapse: collapse; }
+        th, td { padding: 10px; border: 1px solid #ccc; text-align: center; }
+        #languageSelector { position: absolute; top: 10px; right: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="languageSelector">
+    <select id="languageSelect" class="btn">
+        <option value="ja">日本語</option>
+        <option value="en">English</option>
+        <option value="zh">中文</option>
+        <option value="ko">한국어</option>
+    </select>
+</div>
+
+<div id="loginScreen" class="container">
+    <div class="header">ログイン - 東芝テック風レジ</div>
+    <label>ID: <input type="text" id="userId"></label><br><br>
+    <label>パスワード: <input type="password" id="password"></label><br><br>
+    <button class="btn btn-main" onclick="login()">ログイン</button>
+</div>
+
+<div id="mainScreen" class="container">
+    <div class="header">レジ画面</div>
+    <div>
+        <button class="btn btn-main" onclick="addProduct()">商品追加</button>
+        <button class="btn btn-main" onclick="checkout()">会計</button>
+        <button class="btn btn-danger" onclick="cancel()">キャンセル</button>
+        <button class="btn btn-secondary" onclick="exportCSV()">CSV出力</button>
+        <button class="btn btn-secondary" onclick="printReceipt()">レシート出力</button>
+    </div>
+    <table id="cartTable">
+        <thead>
+            <tr><th>商品名</th><th>数量</th><th>価格</th><th>削除</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <div>合計: <span id="total">0</span> 円</div>
+</div>
+
+<script>
+    const cart = [];
+    const translations = {
+        ja: { login: "ログイン", add: "商品追加", checkout: "会計", cancel: "キャンセル", total: "合計" },
+        en: { login: "Login", add: "Add Product", checkout: "Checkout", cancel: "Cancel", total: "Total" },
+        zh: { login: "登录", add: "添加商品", checkout: "结算", cancel: "取消", total: "总计" },
+        ko: { login: "로그인", add: "상품 추가", checkout: "결제", cancel: "취소", total: "합계" }
+    };
+
+    function login() {
+        const id = document.getElementById("userId").value;
+        const pw = document.getElementById("password").value;
+        if (id && pw) {
+            document.getElementById("loginScreen").style.display = "none";
+            document.getElementById("mainScreen").style.display = "block";
+        } else {
+            alert("IDとパスワードを入力してください");
+        }
+    }
+
+    function addProduct() {
+        const name = prompt("商品名を入力してください:");
+        const price = parseInt(prompt("価格を入力してください:"), 10);
+        if (name && !isNaN(price)) {
+            const product = { name, qty: 1, price };
+            cart.push(product);
+            updateCart();
+        }
+    }
+
+    function updateCart() {
+        const tbody = document.querySelector("#cartTable tbody");
+        tbody.innerHTML = "";
+        let total = 0;
+        cart.forEach((item, index) => {
+            total += item.qty * item.price;
+            const row = `<tr>
+                <td>${item.name}</td>
+                <td>${item.qty}</td>
+                <td>${item.price}</td>
+                <td><button onclick="removeProduct(${index})">削除</button></td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+        document.getElementById("total").textContent = total;
+    }
+
+    function removeProduct(index) {
+        cart.splice(index, 1);
+        updateCart();
+    }
+
+    function checkout() {
+        alert("会計完了。レシートを出力します。");
+        printReceipt();
+        cart.length = 0;
+        updateCart();
+    }
+
+    function cancel() {
+        if (confirm("カートを空にしますか？")) {
+            cart.length = 0;
+            updateCart();
+        }
+    }
+
+    function exportCSV() {
+        let csv = "商品名,数量,価格
+";
+        cart.forEach(item => {
+            csv += `${item.name},${item.qty},${item.price}
+`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "sales.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function printReceipt() {
+        let receipt = "====== レシート ======
+";
+        cart.forEach(item => {
+            receipt += `${item.name} x${item.qty} ¥${item.price}
+`;
+        });
+        receipt += `-----------------------
+合計: ¥${document.getElementById("total").textContent}`;
+        const blob = new Blob([receipt], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "receipt.txt";
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    document.getElementById("languageSelect").addEventListener("change", function() {
+        const lang = this.value;
+        const t = translations[lang];
+        document.querySelector(".header").textContent = t.login + " - 東芝テック風レジ";
+        document.querySelector("button[onclick='login()']").textContent = t.login;
+        document.querySelector("button[onclick='addProduct()']").textContent = t.add;
+        document.querySelector("button[onclick='checkout()']").textContent = t.checkout;
+        document.querySelector("button[onclick='cancel()']").textContent = t.cancel;
+        document.querySelector("div span#total").previousSibling.textContent = t.total + ": ";
+    });
+
+    window.onload = () => {
+        document.getElementById("loginScreen").style.display = "block";
+    };
+</script>
+
+</body>
+</html>
