@@ -1,0 +1,141 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>本物レジ風Webアプリ</title>
+  <style>
+    body { font-family: 'Arial', sans-serif; background: #f8f8f8; margin: 0; }
+    .login, .main, .receipt { display: none; padding: 20px; }
+    .active { display: block; }
+    .header { background: #444; color: white; padding: 10px; font-size: 24px; }
+    .btn { margin: 5px; padding: 10px 20px; font-size: 16px; }
+    .product { border: 1px solid #ccc; padding: 10px; margin: 10px; background: #fff; }
+    .alert { color: red; font-weight: bold; }
+    #receiptArea { white-space: pre-wrap; background: #eee; padding: 10px; }
+  </style>
+</head>
+<body>
+
+<div class="login active" id="loginScreen">
+  <h2>ログイン画面</h2>
+  <input type="text" id="username" placeholder="ユーザーID"><br>
+  <input type="password" id="password" placeholder="パスワード"><br>
+  <button onclick="login()" class="btn">ログイン</button>
+</div>
+
+<div class="main" id="mainScreen">
+  <div class="header">🛒 サンプル店舗 - コード: 1234</div>
+  <h3>商品一覧</h3>
+  <div id="products"></div>
+  <div id="cart"></div>
+  <h4 id="totalDisplay">合計: 0円</h4>
+  <button onclick="checkout('cash')" class="btn" style="background: red; color: white;">現金会計</button>
+  <button onclick="checkout('emoney')" class="btn" style="background: blue; color: white;">電子マネー会計</button>
+  <h3>在庫補充</h3>
+  <input type="text" id="restockName" placeholder="商品名">
+  <input type="number" id="restockQty" placeholder="数量">
+  <button onclick="restock()" class="btn">補充</button>
+</div>
+
+<div class="receipt" id="receiptScreen">
+  <h3>🧾 レシート</h3>
+  <div id="receiptArea"></div>
+  <button onclick="printReceipt()" class="btn">印刷</button>
+</div>
+
+<audio id="soundBeep" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
+<audio id="soundPay" src="https://actions.google.com/sounds/v1/cash_register/cash_register_1.ogg"></audio>
+
+<script>
+  const users = { "demo": "1234", "admin": "adminpass" };
+  const inventory = {
+    "リンゴ": { price: 100, stock: 5 },
+    "バナナ": { price: 150, stock: 2 },
+    "オレンジ": { price: 120, stock: 3 }
+  };
+  const cart = {};
+
+  function login() {
+    const u = document.getElementById("username").value;
+    const p = document.getElementById("password").value;
+    if (users[u] === p) {
+      document.getElementById("loginScreen").classList.remove("active");
+      document.getElementById("mainScreen").classList.add("active");
+      renderProducts();
+    } else {
+      alert("ログイン失敗");
+    }
+  }
+
+  function renderProducts() {
+    const pDiv = document.getElementById("products");
+    pDiv.innerHTML = "";
+    for (const [name, data] of Object.entries(inventory)) {
+      const stockAlert = data.stock <= 1 ? "<span class='alert'>残りわずか!</span>" : "";
+      pDiv.innerHTML += `
+        <div class='product'>
+          <strong>${name}</strong> - ${data.price}円 (${data.stock}個) ${stockAlert}<br>
+          <button class='btn' onclick="addToCart('${name}')">追加</button>
+        </div>`;
+    }
+  }
+
+  function addToCart(name) {
+    if (inventory[name].stock <= 0) return alert("在庫切れ");
+    cart[name] = (cart[name] || 0) + 1;
+    inventory[name].stock--;
+    document.getElementById("soundBeep").play();
+    updateCart();
+    renderProducts();
+  }
+
+  function updateCart() {
+    let html = "", total = 0;
+    for (const [name, qty] of Object.entries(cart)) {
+      const price = inventory[name].price;
+      total += price * qty;
+      html += `<div>${name} x${qty} = ${price * qty}円</div>`;
+    }
+    document.getElementById("cart").innerHTML = html;
+    document.getElementById("totalDisplay").innerText = "合計: " + total + "円";
+  }
+
+  function restock() {
+    const name = document.getElementById("restockName").value;
+    const qty = parseInt(document.getElementById("restockQty").value);
+    if (!inventory[name]) inventory[name] = { price: 100, stock: 0 };
+    inventory[name].stock += qty;
+    renderProducts();
+    alert(name + " を " + qty + "個 補充しました");
+  }
+
+  function checkout(method) {
+    document.getElementById("soundPay").play();
+    let receipt = "🧾 サンプル店舗レシート
+";
+    let total = 0;
+    for (const [name, qty] of Object.entries(cart)) {
+      const price = inventory[name].price;
+      receipt += `${name} x${qty} = ${price * qty}円
+`;
+      total += price * qty;
+    }
+    receipt += "----------------
+合計: " + total + "円
+支払方法: " + method;
+    document.getElementById("mainScreen").classList.remove("active");
+    document.getElementById("receiptScreen").classList.add("active");
+    document.getElementById("receiptArea").innerText = receipt;
+  }
+
+  function printReceipt() {
+    const r = document.getElementById("receiptArea").innerText;
+    const w = window.open("", "", "width=400,height=600");
+    w.document.write("<pre>" + r + "</pre>");
+    w.print();
+  }
+</script>
+
+</body>
+</html>
