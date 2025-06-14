@@ -1,242 +1,234 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>業務用レジシステム</title>
+  <meta charset="UTF-8">
+  <title>本物風 業務用レジ</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
     body {
       margin: 0;
-      font-family: "ＭＳ ゴシック", monospace;
-      background-color: #f0f0f0;
-      color: #000;
+      font-family: 'Meiryo', sans-serif;
+      background-color: #1a1a1a;
+      color: white;
     }
     header {
-      background-color: #003366;
-      color: white;
-      padding: 10px;
-      font-size: 18px;
+      background-color: #002f6c;
+      padding: 10px 20px;
+      font-size: 20px;
+      font-weight: bold;
       display: flex;
       justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #444;
+    }
+    #login-screen, #main {
+      display: none;
+    }
+    #login-screen.active, #main.active {
+      display: block;
+    }
+    .login-box {
+      text-align: center;
+      margin-top: 20%;
+    }
+    .login-box input {
+      padding: 10px;
+      margin: 10px;
+      font-size: 16px;
+      width: 200px;
+    }
+    .login-box button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #004b8d;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
     }
     .container {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 20px;
       display: flex;
+      padding: 20px;
       gap: 20px;
     }
-    .products, .receipt-panel {
-      flex: 1;
-    }
     .products {
+      flex: 2;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 10px;
     }
-    .products .product {
-      background: #fff;
-      border: 2px solid #999;
-      padding: 10px;
-      border-radius: 8px;
-      position: relative;
-      box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-    }
     .products button {
-      font-size: 16px;
+      background-color: #eee;
+      color: black;
+      border-radius: 8px;
+      font-size: 20px;
+      padding: 20px;
+      border: 2px solid #888;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .products button:active {
+      transform: scale(0.95);
+    }
+    .receipt-panel {
+      flex: 1;
+      background-color: #fff;
+      color: black;
       padding: 10px;
-      width: 100%;
-      background-color: #ddd;
-      border: 1px solid #aaa;
-      margin-top: 5px;
-      transition: background-color 0.2s;
+      font-family: monospace;
+      font-size: 14px;
+      border-radius: 10px;
+      min-height: 300px;
     }
-    .products button:disabled {
-      background-color: #ccc;
-      color: #999;
-    }
-    .receipt {
-      background: #fff;
-      padding: 15px;
-      border: 1px solid #ccc;
-      height: 300px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-    }
-    .total {
-      font-size: 24px;
-      text-align: right;
+    .controls {
       margin-top: 10px;
     }
-    .pay-btn, .csv-btn {
-      width: 100%;
+    .controls button {
       padding: 10px;
-      background: #0078d7;
+      width: 100%;
+      margin-top: 5px;
+      font-size: 16px;
+      background-color: #0078d7;
       color: white;
       border: none;
-      margin-top: 10px;
-      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
     }
-    #login-screen {
-      height: 100vh;
-      background-color: #003366;
-      color: white;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-    }
-    #login-screen input {
-      font-size: 18px;
-      padding: 10px;
-      margin: 5px;
-      width: 250px;
-    }
-    #login-screen button {
-      padding: 10px 20px;
-      font-size: 16px;
-      margin-top: 10px;
-    }
-    .add-product-form {
-      margin-top: 15px;
-    }
-    .add-product-form input {
-      padding: 5px;
-      margin-right: 5px;
+    .stock-warning {
+      color: red;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <div id="login-screen">
-    <h1>🔐 レジ端末ログイン</h1>
-    <input type="text" id="username" placeholder="ユーザー名 (例: demo)" />
-    <input type="password" id="password" placeholder="パスワード (例: 1234)" />
-    <button onclick="login()">ログイン</button>
-    <p id="login-error" style="color: pink;"></p>
-  </div>
 
-  <div id="main-screen" style="display:none">
-    <header>
-      <div>🧾 レジ業務モード</div>
-      <div id="clock">--:--:--</div>
-    </header>
-    <div class="container">
-      <div class="products" id="product-list"></div>
-      <div class="receipt-panel">
-        <div class="receipt" id="receipt">📋 レシート:</div>
-        <div class="total">合計: <span id="total">0</span> 円</div>
-        <button class="pay-btn" onclick="pay()">💰 会計</button>
-        <button class="csv-btn" onclick="downloadReceipt()">🧾 レシート(.txt)</button>
-        <div class="add-product-form">
-          <input type="text" id="newName" placeholder="🍙 商品名" />
-          <input type="number" id="newPrice" placeholder="価格" />
-          <input type="number" id="newStock" placeholder="在庫数" />
-          <button onclick="addProduct()">➕ 追加</button>
-        </div>
+<div id="login-screen" class="active">
+  <div class="login-box">
+    <h2>🔐 業務用レジログイン</h2>
+    <input type="text" id="username" placeholder="ユーザー名"><br>
+    <input type="password" id="password" placeholder="パスワード"><br>
+    <button onclick="login()">ログイン</button>
+    <p id="login-error" style="color: red;"></p>
+  </div>
+</div>
+
+<div id="main">
+  <header>
+    <div>🏪 レジシステム</div>
+    <div id="clock"></div>
+  </header>
+
+  <div class="container">
+    <div class="products" id="product-list"></div>
+    <div>
+      <div class="receipt-panel" id="receipt"></div>
+      <div class="controls">
+        <button onclick="pay()">💴 会計</button>
+        <button onclick="exportCSV()">📄 CSV出力</button>
+        <button onclick="addProduct()">➕ 商品追加</button>
       </div>
     </div>
   </div>
+</div>
 
-  <audio id="beep" src="https://freesound.org/data/previews/66/66717_931655-lq.mp3"></audio>
+<audio id="beep" src="https://www.soundjay.com/button/beep-07.wav" preload="auto"></audio>
+<audio id="pay-sound" src="https://www.soundjay.com/button/beep-10.wav" preload="auto"></audio>
 
-  <script>
-    const users = {
-      demo: "1234",
-      admin: "adminpass"
-    };
-    let currentUser = "";
+<script>
+  const credentials = {
+    "demo": "1234",
+    "admin": "adminpass"
+  };
 
-    let products = [
-      { name: "🍎 りんご", price: 100, stock: 5 },
-      { name: "🥪 サンド", price: 300, stock: 3 },
-      { name: "🥛 牛乳", price: 150, stock: 2 }
-    ];
-    let total = 0;
+  const products = [
+    { name: "りんご 🍎", price: 100, stock: 5 },
+    { name: "バナナ 🍌", price: 120, stock: 3 },
+    { name: "牛乳 🥛", price: 180, stock: 2 }
+  ];
 
-    function login() {
-      const u = document.getElementById("username").value;
-      const p = document.getElementById("password").value;
-      if (users[u] === p) {
-        currentUser = u;
-        document.getElementById("login-screen").style.display = "none";
-        document.getElementById("main-screen").style.display = "block";
-        updateClock();
-        setInterval(updateClock, 1000);
-        renderProducts();
-      } else {
-        document.getElementById("login-error").textContent = "ログイン失敗：ユーザー名またはパスワードが違います";
+  let total = 0;
+  let receipt = "";
+
+  function login() {
+    const u = document.getElementById("username").value;
+    const p = document.getElementById("password").value;
+    if (credentials[u] === p) {
+      document.getElementById("login-screen").classList.remove("active");
+      document.getElementById("main").classList.add("active");
+      loadProducts();
+      startClock();
+    } else {
+      document.getElementById("login-error").innerText = "ログイン失敗しました。";
+    }
+  }
+
+  function loadProducts() {
+    const list = document.getElementById("product-list");
+    list.innerHTML = "";
+    products.forEach((item, index) => {
+      const btn = document.createElement("button");
+      btn.innerHTML = `${item.name}<br>¥${item.price}<br>残: ${item.stock}`;
+      if (item.stock <= 1) {
+        btn.innerHTML += "<br><span class='stock-warning'>在庫少</span>";
       }
-    }
+      btn.onclick = () => {
+        if (item.stock > 0) {
+          total += item.price;
+          item.stock--;
+          receipt += `${item.name}　¥${item.price}\n`;
+          document.getElementById("receipt").innerText = receipt + "\n合計: ¥" + total;
+          document.getElementById("beep").play();
+          loadProducts();
+        } else {
+          alert("在庫切れです！");
+        }
+      };
+      list.appendChild(btn);
+    });
+  }
 
-    function renderProducts() {
-      const list = document.getElementById("product-list");
-      list.innerHTML = "";
-      products.forEach((p, i) => {
-        const div = document.createElement("div");
-        div.className = "product";
-        div.innerHTML = `
-          <strong>${p.name}</strong><br>￥${p.price}<br>
-          在庫: ${p.stock}<br>
-          <button ${p.stock <= 0 ? "disabled" : ""} onclick="addToReceipt(${i})">追加</button>
-          ${currentUser === 'admin' || currentUser === 'demo' ? `<button onclick="restock(${i})">補充</button>` : ""}
-        `;
-        list.appendChild(div);
-      });
+  function pay() {
+    if (total === 0) {
+      alert("商品が選ばれていません。");
+      return;
     }
+    receipt += `-------------------\nお会計: ¥${total}\nありがとうございました！\n\n`;
+    document.getElementById("receipt").innerText = receipt;
+    document.getElementById("pay-sound").play();
+    total = 0;
+    receipt = "";
+  }
 
-    function addToReceipt(index) {
-      const p = products[index];
-      if (p.stock > 0) {
-        document.getElementById("beep").play();
-        p.stock--;
-        document.getElementById("receipt").textContent += `\n${p.name} - ￥${p.price}`;
-        total += p.price;
-        document.getElementById("total").textContent = total;
-        renderProducts();
-      }
-    }
+  function exportCSV() {
+    let csv = "商品名,価格,在庫\n";
+    products.forEach(p => {
+      csv += `${p.name},${p.price},${p.stock}\n`;
+    });
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "products.csv";
+    link.click();
+  }
 
-    function pay() {
-      alert(`￥${total} 会計完了`);
-      document.getElementById("receipt").textContent = "📋 レシート:";
-      total = 0;
-      document.getElementById("total").textContent = "0";
-    }
-
-    function downloadReceipt() {
-      const blob = new Blob([document.getElementById("receipt").textContent], { type: "text/plain" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "receipt.txt";
-      link.click();
-    }
-
-    function addProduct() {
-      const name = document.getElementById("newName").value || "🆕 商品";
-      const price = parseInt(document.getElementById("newPrice").value) || 100;
-      const stock = parseInt(document.getElementById("newStock").value) || 5;
+  function addProduct() {
+    const name = prompt("商品名を入力（絵文字も可）:");
+    const price = parseInt(prompt("価格を入力（半角数字）:"), 10);
+    const stock = parseInt(prompt("在庫数を入力:"), 10);
+    if (name && !isNaN(price) && !isNaN(stock)) {
       products.push({ name, price, stock });
-      renderProducts();
-      document.getElementById("newName").value = "";
-      document.getElementById("newPrice").value = "";
-      document.getElementById("newStock").value = "";
+      loadProducts();
     }
+  }
 
-    function restock(index) {
-      const add = prompt("補充数を入力:", "5");
-      if (add !== null && !isNaN(add)) {
-        products[index].stock += parseInt(add);
-        renderProducts();
-      }
-    }
-
-    function updateClock() {
+  function startClock() {
+    setInterval(() => {
       const now = new Date();
-      const time = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
-      document.getElementById("clock").textContent = time;
-    }
-  </script>
+      const h = now.getHours().toString().padStart(2, '0');
+      const m = now.getMinutes().toString().padStart(2, '0');
+      const s = now.getSeconds().toString().padStart(2, '0');
+      document.getElementById("clock").innerText = `${h}:${m}:${s}`;
+    }, 1000);
+  }
+</script>
 </body>
 </html>
