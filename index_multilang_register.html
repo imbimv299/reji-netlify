@@ -1,0 +1,110 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>業務用レジ（多言語対応）</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f2f2f2;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #004f8c;
+      color: white;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5em;
+    }
+    #lang-select {
+      font-size: 1em;
+    }
+    main {
+      padding: 20px;
+    }
+    .button {
+      padding: 10px 20px;
+      font-size: 1.2em;
+      margin: 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="app-title">業務用レジ</h1>
+    <select id="lang-select">
+      <option value="ja">日本語</option>
+      <option value="en">English</option>
+      <option value="zh">中文</option>
+      <option value="ko">한국어</option>
+      <option value="es">Español</option>
+    </select>
+  </header>
+
+  <main>
+    <button class="button" id="btn-sale">販売</button>
+    <button class="button" id="btn-stock">在庫</button>
+    <button class="button" id="btn-login">ログイン</button>
+  </main>
+
+  <script>
+    const translations = {
+      ja: {
+        "app-title": "業務用レジ",
+        "btn-sale": "販売",
+        "btn-stock": "在庫",
+        "btn-login": "ログイン",
+      },
+      en: {
+        "app-title": "POS Register",
+        "btn-sale": "Sale",
+        "btn-stock": "Stock",
+        "btn-login": "Login",
+      },
+      zh: {
+        "app-title": "收银系统",
+        "btn-sale": "销售",
+        "btn-stock": "库存",
+        "btn-login": "登录",
+      },
+      ko: {
+        "app-title": "포스 레지",
+        "btn-sale": "판매",
+        "btn-stock": "재고",
+        "btn-login": "로그인",
+      },
+      es: {
+        "app-title": "Caja Registradora",
+        "btn-sale": "Venta",
+        "btn-stock": "Inventario",
+        "btn-login": "Iniciar Sesión",
+      }
+    };
+
+    const elements = ["app-title", "btn-sale", "btn-stock", "btn-login"];
+
+    function setLanguage(lang) {
+      const t = translations[lang];
+      elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && t[id]) el.textContent = t[id];
+      });
+    }
+
+    document.getElementById("lang-select").addEventListener("change", e => {
+      setLanguage(e.target.value);
+    });
+
+    // 初期言語設定
+    setLanguage("ja");
+  </script>
+</body>
+</html>
